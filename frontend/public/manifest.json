@@ -1,0 +1,29 @@
+{
+  "name": "WhatsApp Sticker Maker",
+  "short_name": "Stickers",
+  "description": "Convert Reels and videos into WhatsApp 512x512 WebP stickers.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0f141c",
+  "theme_color": "#25D366",
+  "icons": [
+    {
+      "src": "/vite.svg",
+      "sizes": "192x192 512x512",
+      "type": "image/svg+xml"
+    }
+  ],
+  "share_target": {
+    "action": "/",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "files": [
+        {
+          "name": "file",
+          "accept": ["video/*", "image/gif"]
+        }
+      ]
+    }
+  }
+}

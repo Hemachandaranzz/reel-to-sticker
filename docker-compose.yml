@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: sticker_backend
+    restart: unless-stopped
+    environment:
+      - CORS_ORIGINS=http://localhost,http://localhost:3000,http://127.0.0.1
+      - RATE_LIMIT_PER_MINUTE=20/minute
+      - MAX_CONCURRENT_FFMPEG=2
+      - FFMPEG_THREADS=2
+      - ENABLE_CUTOUT=true
+    ports:
+      - "8000:8000"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2048M
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: sticker_frontend
+    restart: unless-stopped
+    ports:
+      - "3000:80"
+    depends_on:
+      backend:
+        condition: service_healthy
