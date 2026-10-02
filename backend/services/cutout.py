@@ -1,6 +1,12 @@
 import logging
 from typing import List, Optional
-import numpy as np
+try:
+    import numpy as np
+    NUMPY_AVAILABLE = True
+except ImportError:
+    np = None
+    NUMPY_AVAILABLE = False
+
 from PIL import Image, ImageFilter
 
 try:
@@ -18,10 +24,10 @@ except Exception:
     REMBG_AVAILABLE = False
 
 
-
 def is_cutout_available() -> bool:
-    """Check if background removal is enabled and rembg is installed."""
-    return bool(ENABLE_CUTOUT and REMBG_AVAILABLE)
+    """Check if background removal is enabled and rembg and numpy are installed."""
+    return bool(ENABLE_CUTOUT and REMBG_AVAILABLE and NUMPY_AVAILABLE)
+
 
 
 def apply_sticker_outline(
