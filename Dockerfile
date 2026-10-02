@@ -17,8 +17,8 @@ FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    PYTHONPATH="/app:/app/backend:$PYTHONPATH" \
-    PORT=8000
+    PYTHONPATH="/app:/app/backend:$PYTHONPATH"
+
 
 
 # Install FFmpeg, WebP support, and curl for container healthchecks
@@ -42,7 +42,8 @@ COPY --from=frontend-builder /app/frontend/dist ./frontend/dist
 
 WORKDIR /app/backend
 
-EXPOSE 8000
+EXPOSE 10000
 
-# Start Uvicorn bound to dynamic $PORT (required for Render/Railway/Fly.io/Koyeb)
-CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-8000} --workers 1"]
+# Start Uvicorn bound to dynamic $PORT (Render provides PORT=10000 by default)
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port ${PORT:-10000} --workers 1"]
+
