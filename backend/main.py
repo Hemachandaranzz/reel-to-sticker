@@ -18,10 +18,13 @@ from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from slowapi.util import get_remote_address
 
-# Add backend directory to sys.path so imports work from anywhere
+# Add backend and project root directory to sys.path so both 'backend.*' and direct imports work
 BACKEND_DIR = Path(__file__).resolve().parent
-if str(BACKEND_DIR) not in sys.path:
-    sys.path.insert(0, str(BACKEND_DIR))
+PROJECT_ROOT = BACKEND_DIR.parent
+for p in (str(BACKEND_DIR), str(PROJECT_ROOT)):
+    if p not in sys.path:
+        sys.path.insert(0, p)
+
 
 try:
     from config import CORS_ORIGINS, RATE_LIMIT_PER_MINUTE

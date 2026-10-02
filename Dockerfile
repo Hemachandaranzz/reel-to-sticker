@@ -17,7 +17,9 @@ FROM python:3.11-slim
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    PYTHONPATH="/app:/app/backend:$PYTHONPATH" \
     PORT=8000
+
 
 # Install FFmpeg, WebP support, and curl for container healthchecks
 RUN apt-get update && apt-get install -y --no-install-recommends \
