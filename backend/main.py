@@ -11,7 +11,8 @@ from pathlib import Path
 
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
@@ -162,3 +163,31 @@ async def probe(file: UploadFile = File(...)):
         await save_upload_to_temp(file, temp_file)
         metadata = validate_video(temp_file)
         return metadata
+
+
+# --- Production Static File Serving for Single-Service Cloud Deployment ---
+possible_dist_dirs = [
+    Path(__file__).resolve().parent.parent / "frontend" / "dist",
+    Path(__file__).resolve().parent / "dist",
+    Path(__file__).resolve().parent / "static",
+    Path("/app/frontend/dist"),
+    Path("/app/dist"),
+]
+
+FRONTEND_DIST = next((d for d in possible_dist_dirs if (d / "index.html").is_file()), None)
+
+if FRONTEND_DIST:
+    logger.info(f"Serving frontend static build from: {FRONTEND_DIST}")
+    assets_dir = FRONTEND_DIST / "assets"
+    if assets_dir.exists():
+        app.mount("/assets", StaticFiles(directory=str(assets_dir)), name="assets")
+
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        if full_path.startswith("api/"):
+            raise HTTPException(status_code=404, detail="API endpoint not found")
+        file_path = FRONTEND_DIST / full_path
+        if file_path.is_file():
+            return FileResponse(file_path)
+        return FileResponse(FRONTEND_DIST / "index.html")
+

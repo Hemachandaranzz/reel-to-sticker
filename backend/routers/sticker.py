@@ -327,3 +327,96 @@ async def create_animated_sticker(
                 "X-Sticker-Frames": str(stats["frames"]),
             }
         )
+
+
+@router.post("/convert-to-gif")
+@limiter.limit(RATE_LIMIT_PER_MINUTE)
+async def convert_webp_to_gif(
+    request: Request,
+    file: UploadFile = File(...)
+):
+    """
+    Convert an animated WebP sticker into a looping GIF sticker.
+    Useful for WhatsApp GIF sending, Discord, Telegram, and desktop chats.
+    """
+    contents = await file.read()
+    if not contents:
+        raise HTTPException(status_code=400, detail="Empty file provided.")
+
+    with tempfile.NamedTemporaryFile(suffix=".webp", delete=False) as tmp_in, \
+         tempfile.NamedTemporaryFile(suffix=".gif", delete=False) as tmp_out:
+        in_path, out_path = Path(tmp_in.name), Path(tmp_out.name)
+        tmp_in.write(contents)
+
+    try:
+        async with ffmpeg_slot():
+            # Convert WebP to high-quality GIF with transparency palette
+            run_ffmpeg([
+                "-i", str(in_path),
+                "-filter_complex", "[0:v]split[a][b];[a]palettegen=reserve_transparent=on:transparency_color=ffffff[p];[b][p]paletteuse",
+                "-y",
+                str(out_path)
+            ], timeout=15)
+
+        with open(out_path, "rb") as f:
+            gif_bytes = f.read()
+
+        return Response(
+            content=gif_bytes,
+            media_type="image/gif",
+            headers={
+                "Content-Disposition": 'attachment; filename="sticker.gif"',
+                "X-Sticker-Size": str(len(gif_bytes)),
+            }
+        )
+    finally:
+        in_path.unlink(missing_ok=True)
+        out_path.unlink(missing_ok=True)
+
+
+@router.post("/convert-to-mp4")
+@limiter.limit(RATE_LIMIT_PER_MINUTE)
+async def convert_webp_to_mp4(
+    request: Request,
+    file: UploadFile = File(...)
+):
+    """
+    Convert an animated WebP sticker into a 512x512 MP4 video clip.
+    When dropped into WhatsApp Web (Photos & Videos), WhatsApp enables the native GIF toggle.
+    """
+    contents = await file.read()
+    if not contents:
+        raise HTTPException(status_code=400, detail="Empty file provided.")
+
+    with tempfile.NamedTemporaryFile(suffix=".webp", delete=False) as tmp_in, \
+         tempfile.NamedTemporaryFile(suffix=".mp4", delete=False) as tmp_out:
+        in_path, out_path = Path(tmp_in.name), Path(tmp_out.name)
+        tmp_in.write(contents)
+
+    try:
+        async with ffmpeg_slot():
+            run_ffmpeg([
+                "-i", str(in_path),
+                "-c:v", "libx264",
+                "-pix_fmt", "yuv420p",
+                "-movflags", "+faststart",
+                "-y",
+                str(out_path)
+            ], timeout=15)
+
+        with open(out_path, "rb") as f:
+            mp4_bytes = f.read()
+
+        return Response(
+            content=mp4_bytes,
+            media_type="video/mp4",
+            headers={
+                "Content-Disposition": 'attachment; filename="sticker.mp4"',
+                "X-Sticker-Size": str(len(mp4_bytes)),
+            }
+        )
+    finally:
+        in_path.unlink(missing_ok=True)
+        out_path.unlink(missing_ok=True)
+
+

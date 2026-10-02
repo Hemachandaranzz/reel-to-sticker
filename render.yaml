@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: reel-to-sticker
+    runtime: docker
+    plan: free
+    region: oregon
+    envVars:
+      - key: PORT
+        value: 8000
+    healthCheckPath: /api/health

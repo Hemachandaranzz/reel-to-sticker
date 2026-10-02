@@ -272,12 +272,16 @@ export default function App() {
       </header>
 
       <main className="main-content">
-        {/* Instagram Reel Link Checker */}
-        {!file && (
-          <section className="section-card">
-            <ReelInput disabled={isProbing || isConverting} />
-          </section>
-        )}
+        {/* Instagram Reel Direct Downloader & Link Importer */}
+        <section className="section-card">
+          <ReelInput
+            onVideoLoaded={handleFileSelected}
+            onClearVideo={handleReset}
+            hasLoadedVideo={Boolean(file)}
+            currentFileName={file?.name}
+            disabled={isProbing || isConverting}
+          />
+        </section>
 
         {/* Upload Dropzone */}
         <section className="section-card">

@@ -1,79 +1,161 @@
 import React, { useState } from 'react';
-import { checkReelUrl } from '../lib/api';
+import { downloadReelVideo, checkReelUrl } from '../lib/api';
 
-export default function ReelInput({ onPermissionConfirmed, disabled }) {
+export default function ReelInput({
+  onVideoLoaded,
+  onClearVideo,
+  hasLoadedVideo = false,
+  currentFileName = '',
+  disabled = false,
+}) {
   const [url, setUrl] = useState('');
-  const [isChecking, setIsChecking] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(null);
   const [error, setError] = useState(null);
-  const [reelData, setReelData] = useState(null);
-  const [hasPermission, setHasPermission] = useState(false);
+  const [fallbackGuide, setFallbackGuide] = useState(null);
 
-  const handleCheck = async (e) => {
+  const handleFetchAndLoad = async (e) => {
     e.preventDefault();
-    if (!url.trim()) return;
+    const cleanUrl = url.trim();
+    if (!cleanUrl) return;
 
     setError(null);
-    setReelData(null);
-    setIsChecking(true);
+    setFallbackGuide(null);
+    setIsDownloading(true);
+    setDownloadProgress('Connecting to Instagram and extracting video...');
 
     try {
-      const data = await checkReelUrl(url.trim());
-      setReelData(data);
-      if (hasPermission && onPermissionConfirmed) {
-        onPermissionConfirmed(true);
+      const { blob, metadata } = await downloadReelVideo(cleanUrl);
+      setDownloadProgress('Video received! Initializing sticker studio...');
+
+      // Convert downloaded blob into a standard File object
+      const videoFile = new File([blob], 'instagram_reel.mp4', { type: 'video/mp4' });
+
+      if (onVideoLoaded) {
+        onVideoLoaded(videoFile, metadata);
       }
+
+      // Clear URL input so user can enter another URL immediately
+      setUrl('');
     } catch (err) {
-      setError(err.message || 'Invalid Instagram Reel URL.');
+      setError(err.message || 'Failed to download video directly.');
+      // Attempt checkReelUrl to show fallback instructions if available
+      try {
+        const checkData = await checkReelUrl(cleanUrl);
+        setFallbackGuide(checkData);
+      } catch {
+        // ignore check errors
+      }
     } finally {
-      setIsChecking(false);
+      setIsDownloading(false);
+      setDownloadProgress(null);
     }
   };
 
-  const handlePermissionToggle = (checked) => {
-    setHasPermission(checked);
-    if (onPermissionConfirmed) {
-      onPermissionConfirmed(checked);
-    }
+  const handleClearInput = () => {
+    setUrl('');
+    setError(null);
+    setFallbackGuide(null);
   };
 
   return (
     <div className="reel-input-card">
       <div className="reel-header">
-        <span className="reel-icon">📸</span>
+        <span className="reel-icon">⚡</span>
         <div>
-          <h3>Convert from Instagram Reel</h3>
+          <h3>Download &amp; Convert Instagram Reel</h3>
           <p className="reel-sub">
-            Paste a link to verify the Reel, then follow the 3-step guide to convert.
+            Paste an Instagram Reel link — our server will download the video automatically and load it into the editor!
           </p>
         </div>
       </div>
 
-      <form onSubmit={handleCheck} className="reel-form">
-        <input
-          type="url"
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://www.instagram.com/reel/C_8xYzaB123/..."
-          className="reel-text-input"
-          disabled={disabled || isChecking}
-        />
+      {hasLoadedVideo && (
+        <div className="current-video-bar">
+          <div className="current-video-info">
+            <span className="current-video-dot">●</span>
+            <span>
+              Active Video: <strong>{currentFileName || 'instagram_reel.mp4'}</strong>
+            </span>
+          </div>
+          {onClearVideo && (
+            <button
+              type="button"
+              className="clear-video-pill-btn"
+              onClick={onClearVideo}
+              disabled={disabled || isDownloading}
+            >
+              ✕ Clear / Start Fresh
+            </button>
+          )}
+        </div>
+      )}
+
+      <form onSubmit={handleFetchAndLoad} className="reel-form">
+        <div className="reel-input-wrapper">
+          <input
+            type="url"
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder={
+              hasLoadedVideo
+                ? 'Paste another Reel URL to switch video...'
+                : 'Paste Instagram Reel link (https://www.instagram.com/reel/...)'
+            }
+            className="reel-text-input"
+            disabled={disabled || isDownloading}
+            required
+          />
+          {url && !isDownloading && (
+            <button
+              type="button"
+              className="clear-url-btn"
+              onClick={handleClearInput}
+              title="Clear URL"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
         <button
           type="submit"
           className="reel-check-btn"
-          disabled={disabled || isChecking || !url.trim()}
+          disabled={disabled || isDownloading || !url.trim()}
         >
-          {isChecking ? 'Checking...' : 'Check Link'}
+          {isDownloading ? (
+            <>
+              <span className="spinner" style={{ width: '0.8rem', height: '0.8rem' }} /> Fetching Video...
+            </>
+          ) : hasLoadedVideo ? (
+            '🔄 Switch Video'
+          ) : (
+            '🚀 Fetch & Edit'
+          )}
         </button>
       </form>
 
-      {error && <div className="status-banner error">{error}</div>}
+      {downloadProgress && (
+        <div className="status-banner info">
+          <span className="spinner" /> {downloadProgress}
+        </div>
+      )}
 
-      {reelData && (
+      {error && (
+        <div className="status-banner error" role="alert">
+          <span className="error-icon">⚠️</span>
+          <div className="error-message">
+            <strong>Download Error:</strong> {error}
+          </div>
+        </div>
+      )}
+
+      {fallbackGuide && (
         <div className="reel-guidance-box">
           <div className="reel-badge-row">
-            <span className="valid-pill">✅ Verified Reel: {reelData.shortcode}</span>
+            <span className="valid-pill">ℹ️ Manual Option: {fallbackGuide.shortcode}</span>
             <a
-              href={reelData.clean_url}
+              href={fallbackGuide.clean_url}
               target="_blank"
               rel="noopener noreferrer"
               className="open-reel-link"
@@ -81,23 +163,14 @@ export default function ReelInput({ onPermissionConfirmed, disabled }) {
               Open on Instagram ↗
             </a>
           </div>
-
+          <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)' }}>
+            If Instagram restricts automated access to this clip, you can save it on Instagram and drop it below:
+          </p>
           <ol className="guidance-steps">
-            {reelData.guidance.map((step, idx) => (
+            {fallbackGuide.guidance.map((step, idx) => (
               <li key={idx}>{step}</li>
             ))}
           </ol>
-
-          <label className="permission-checkbox-label">
-            <input
-              type="checkbox"
-              checked={hasPermission}
-              onChange={(e) => handlePermissionToggle(e.target.checked)}
-            />
-            <span>
-              I own this video or have permission from the creator to create stickers from it.
-            </span>
-          </label>
         </div>
       )}
     </div>

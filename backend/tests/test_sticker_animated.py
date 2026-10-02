@@ -99,3 +99,55 @@ def test_animated_sticker_invalid_speed(generate_clip):
             )
         assert response.status_code == 400
         assert "Speed must be between 0.5x and 2.0x" in response.json()["detail"]
+
+
+def test_convert_webp_to_gif(generate_clip):
+    """Verify converting an animated WebP sticker to GIF succeeds."""
+    video_path = generate_clip(2)
+    with TestClient(app) as client:
+        # First generate a short webp
+        with open(video_path, "rb") as f:
+            resp_webp = client.post(
+                "/api/sticker/animated",
+                files={"file": ("test.mp4", f, "video/mp4")},
+                data={"start": 0.0, "duration": 1.0, "preset": "fast"}
+            )
+        assert resp_webp.status_code == 200
+        webp_bytes = resp_webp.content
+
+        # Convert to GIF
+        resp_gif = client.post(
+            "/api/sticker/convert-to-gif",
+            files={"file": ("sticker.webp", webp_bytes, "image/webp")}
+        )
+        assert resp_gif.status_code == 200
+        assert resp_gif.headers["content-type"] == "image/gif"
+        assert len(resp_gif.content) > 0
+        # Verify GIF magic bytes 'GIF89a' or 'GIF87a'
+        assert resp_gif.content.startswith(b"GIF8")
+
+
+def test_convert_webp_to_mp4(generate_clip):
+    """Verify converting an animated WebP sticker to MP4 clip succeeds."""
+    video_path = generate_clip(2)
+    with TestClient(app) as client:
+        with open(video_path, "rb") as f:
+            resp_webp = client.post(
+                "/api/sticker/animated",
+                files={"file": ("test.mp4", f, "video/mp4")},
+                data={"start": 0.0, "duration": 1.0, "preset": "fast"}
+            )
+        assert resp_webp.status_code == 200
+        webp_bytes = resp_webp.content
+
+        # Convert to MP4
+        resp_mp4 = client.post(
+            "/api/sticker/convert-to-mp4",
+            files={"file": ("sticker.webp", webp_bytes, "image/webp")}
+        )
+        assert resp_mp4.status_code == 200
+        assert resp_mp4.headers["content-type"] == "video/mp4"
+        assert len(resp_mp4.content) > 0
+        assert int(resp_mp4.headers["X-Sticker-Size"]) > 0
+
+

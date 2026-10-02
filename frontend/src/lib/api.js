@@ -188,3 +188,74 @@ export async function checkReelUrl(url, signal) {
 
   return res.json();
 }
+
+export async function downloadReelVideo(url, signal) {
+  const res = await fetch('/api/reel/download', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+    signal,
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Download failed: HTTP ${res.status}`);
+  }
+
+  const blob = await res.blob();
+  const duration = parseFloat(res.headers.get('X-Video-Duration')) || null;
+  const width = parseInt(res.headers.get('X-Video-Width'), 10) || null;
+  const height = parseInt(res.headers.get('X-Video-Height'), 10) || null;
+  const fps = parseFloat(res.headers.get('X-Video-Fps')) || null;
+
+  return {
+    blob,
+    metadata: duration && width ? { duration, width, height, fps } : null,
+  };
+}
+
+export async function convertWebpToGif(webpBlob, signal) {
+  const formData = new FormData();
+  formData.append('file', webpBlob, 'sticker.webp');
+
+  const res = await fetch('/api/sticker/convert-to-gif', {
+    method: 'POST',
+    body: formData,
+    signal,
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || `GIF conversion failed: HTTP ${res.status}`);
+  }
+
+  const blob = await res.blob();
+  return {
+    blob,
+    size: Number(res.headers.get('X-Sticker-Size')) || blob.size,
+  };
+}
+
+export async function convertWebpToMp4(webpBlob, signal) {
+  const formData = new FormData();
+  formData.append('file', webpBlob, 'sticker.webp');
+
+  const res = await fetch('/api/sticker/convert-to-mp4', {
+    method: 'POST',
+    body: formData,
+    signal,
+  });
+
+  if (!res.ok) {
+    const errorData = await res.json().catch(() => ({}));
+    throw new Error(errorData.detail || `MP4 conversion failed: HTTP ${res.status}`);
+  }
+
+  const blob = await res.blob();
+  return {
+    blob,
+    size: Number(res.headers.get('X-Sticker-Size')) || blob.size,
+  };
+}
+
+
